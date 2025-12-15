@@ -6,51 +6,56 @@ const CryptoCard = ({ crypto, onClick }) => {
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-lg shadow-md p-6 hover:shadow-xl transition-shadow cursor-pointer border border-gray-200"
+      className="crypto-card w-full flex items-center justify-between 
+                 bg-gray-800 rounded-lg shadow-md p-4 
+                 transition-all cursor-pointer border border-gray-700 
+                 hover:bg-gray-700 hover:shadow-xl"
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          <img
-            src={crypto.image}
-            alt={crypto.name}
-            className="w-10 h-10 rounded-full"
-          />
-          <div>
-            <h3 className="font-bold text-lg text-gray-800">{crypto.name}</h3>
-            <p className="text-sm text-gray-500 uppercase">{crypto.symbol}</p>
-          </div>
+      {/* LEFT: ICON + NAME */}
+      <div className="flex items-center space-x-4">
+        <img
+          src={crypto.image}
+          alt={crypto.name}
+          className="w-12 h-12 rounded-full"
+        />
+
+        <div>
+          <h3 className="font-bold text-xl text-white">{crypto.name}</h3>
+          <p className="text-sm text-gray-400 uppercase">{crypto.symbol}</p>
         </div>
       </div>
-      <div className="space-y-2">
-        <div>
-          <p className="text-2xl font-bold text-gray-900">
-            ${crypto.current_price?.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </p>
-        </div>
+
+      {/* RIGHT: PRICE + CHANGE + MARKET CAP */}
+      <div className="flex flex-col items-end space-y-1">
+        <p className="text-xl font-bold text-gray-100">
+          ${crypto.current_price?.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </p>
+
         <div className="flex items-center space-x-2">
           {isPositive ? (
-            <FaArrowUp className="text-green-500" />
+            <FaArrowUp className="text-green-400" />
           ) : (
-            <FaArrowDown className="text-red-500" />
+            <FaArrowDown className="text-red-400" />
           )}
+
           <span
             className={`font-semibold ${
-              isPositive ? 'text-green-500' : 'text-red-500'
+              isPositive ? 'text-green-400' : 'text-red-400'
             }`}
           >
             {Math.abs(crypto.price_change_percentage_24h)?.toFixed(2)}%
           </span>
         </div>
-        <div className="text-sm text-gray-600">
-          <p>Market Cap: ${crypto.market_cap?.toLocaleString()}</p>
-        </div>
+
+        <p className="text-sm text-gray-400">
+          Market Cap: ${crypto.market_cap?.toLocaleString()}
+        </p>
       </div>
     </div>
   );
 };
 
 export default CryptoCard;
-

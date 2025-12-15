@@ -11,7 +11,6 @@ const News = () => {
 
   useEffect(() => {
     fetchNews();
-    // Refresh news every 5 minutes
     const interval = setInterval(fetchNews, 300000);
     return () => clearInterval(interval);
   }, []);
@@ -37,8 +36,7 @@ const News = () => {
       setFilteredNews(data);
     } catch (error) {
       toast.error('Failed to fetch news. Using fallback data.');
-      // Fallback mock data
-      setNews([
+      const fallback = [
         {
           id: 1,
           title: 'Bitcoin Reaches New All-Time High',
@@ -57,27 +55,9 @@ const News = () => {
           published_on: Math.floor(Date.now() / 1000) - 7200,
           source: 'BlockchainDaily',
         },
-      ]);
-      setFilteredNews([
-        {
-          id: 1,
-          title: 'Bitcoin Reaches New All-Time High',
-          body: 'Bitcoin has reached a new all-time high, breaking previous records...',
-          url: '#',
-          imageurl: 'https://via.placeholder.com/400x200',
-          published_on: Math.floor(Date.now() / 1000) - 3600,
-          source: 'CryptoNews',
-        },
-        {
-          id: 2,
-          title: 'Ethereum 2.0 Staking Update',
-          body: 'Ethereum continues to see significant staking activity...',
-          url: '#',
-          imageurl: 'https://via.placeholder.com/400x200',
-          published_on: Math.floor(Date.now() / 1000) - 7200,
-          source: 'BlockchainDaily',
-        },
-      ]);
+      ];
+      setNews(fallback);
+      setFilteredNews(fallback);
     } finally {
       setLoading(false);
     }
@@ -94,6 +74,7 @@ const News = () => {
     });
   };
 
+  // ❗ FIXED your BAD string template error 
   const getTimeAgo = (timestamp) => {
     const seconds = Math.floor(Date.now() / 1000) - timestamp;
     if (seconds < 60) return 'Just now';
@@ -103,11 +84,12 @@ const News = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Crypto News</h1>
-          <p className="text-gray-600">Stay updated with the latest cryptocurrency news</p>
+          <h1 className="text-4xl font-bold text-white mb-2">Crypto News</h1>
+          <p className="text-gray-400">Stay updated with the latest cryptocurrency news</p>
         </div>
 
         {/* Search Bar */}
@@ -117,64 +99,72 @@ const News = () => {
             placeholder="Search news..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 
+                       text-gray-200 placeholder-gray-400 rounded-lg 
+                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
 
         {/* Loading State */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <FaSpinner className="animate-spin text-4xl text-blue-600" />
+            <FaSpinner className="animate-spin text-4xl text-blue-500" />
           </div>
         ) : (
           <>
             {/* News Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
               {filteredNews.length === 0 ? (
                 <div className="col-span-full text-center py-12">
-                  <p className="text-gray-500 text-lg">No news found matching your search.</p>
+                  <p className="text-gray-400 text-lg">No news found matching your search.</p>
                 </div>
               ) : (
                 filteredNews.map((item) => (
                   <div
                     key={item.id}
-                    className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow"
+                    className="bg-gray-800 border border-gray-700 rounded-lg 
+                               shadow-md overflow-hidden hover:bg-gray-700 
+                               hover:shadow-xl transition-all"
                   >
                     {item.imageurl && (
                       <img
                         src={item.imageurl}
                         alt={item.title}
                         className="w-full h-48 object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
+                        onError={(e) => (e.target.style.display = 'none')}
                       />
                     )}
+
                     <div className="p-6">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-blue-600 uppercase">
+                        <span className="text-xs font-semibold text-blue-400 uppercase">
                           {item.source || 'Crypto News'}
                         </span>
-                        <div className="flex items-center text-xs text-gray-500">
+                        <div className="flex items-center text-xs text-gray-400">
                           <FaCalendar className="mr-1" />
                           {getTimeAgo(item.published_on)}
                         </div>
                       </div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
+
+                      <h3 className="text-xl font-bold text-white mb-2 line-clamp-2">
                         {item.title}
                       </h3>
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+
+                      <p className="text-gray-300 text-sm mb-4 line-clamp-3">
                         {item.body || item.title}
                       </p>
+
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-400">
                           {formatDate(item.published_on)}
                         </span>
+
                         <a
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 text-sm font-medium"
                         >
                           <span>Read more</span>
                           <FaExternalLinkAlt className="w-3 h-3" />
@@ -184,11 +174,12 @@ const News = () => {
                   </div>
                 ))
               )}
+
             </div>
 
             {filteredNews.length > 0 && (
               <div className="mt-8 text-center">
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-400 text-sm">
                   Showing {filteredNews.length} of {news.length} articles
                 </p>
               </div>
@@ -201,4 +192,3 @@ const News = () => {
 };
 
 export default News;
-

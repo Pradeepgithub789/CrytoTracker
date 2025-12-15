@@ -14,44 +14,33 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchAllCryptos();
-    // Refresh data every 30 seconds
     const interval = setInterval(fetchAllCryptos, 30000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    // Update displayed cryptos when page or allCryptos changes
-    if (allCryptos.length === 0) {
+    if (!allCryptos.length) {
       setCryptos([]);
       return;
     }
-
-    // Calculate pagination: show itemsPerPage items per page
-    // Each page shows a fresh set starting from (page - 1) * itemsPerPage
     const startIndex = (page - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    const pageData = allCryptos.slice(startIndex, endIndex);
-    
-    setCryptos(pageData);
-  }, [page, allCryptos, itemsPerPage]);
+    setCryptos(allCryptos.slice(startIndex, endIndex));
+  }, [page, allCryptos]);
 
   const fetchAllCryptos = async () => {
     try {
       setLoading(true);
-      // Use the cached full cryptocurrency list (same as Portfolio/Alerts)
       const allData = await cryptoAPI.getAllCryptocurrencies();
-      
+
       if (allData && allData.length > 0) {
         setAllCryptos(allData);
-        console.log(`Loaded ${allData.length} cryptocurrencies for dashboard`);
       } else {
         toast.error('Failed to load cryptocurrency data.');
-        setAllCryptos([]);
       }
     } catch (error) {
-      toast.error('Failed to fetch crypto data. Please try again later.');
+      toast.error('Failed to fetch crypto data.');
       console.error(error);
-      setAllCryptos([]);
     } finally {
       setLoading(false);
     }
@@ -66,13 +55,14 @@ const Dashboard = () => {
   const totalPages = Math.ceil(allCryptos.length / itemsPerPage);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-bold text-white mb-2">
             Crypto Market Dashboard
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-300">
             Real-time cryptocurrency prices and market data
           </p>
         </div>
@@ -80,26 +70,29 @@ const Dashboard = () => {
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <FaSearch
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+            />
             <input
               type="text"
               placeholder="Search cryptocurrencies..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg 
+                         text-gray-200 placeholder-gray-400 
+                         focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
         </div>
 
-        {/* Loading State */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <FaSpinner className="animate-spin text-4xl text-blue-600" />
+            <FaSpinner className="animate-spin text-4xl text-blue-500" />
           </div>
         ) : (
           <>
-            {/* Crypto Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {/* FULL-WIDTH HORIZONTAL LIST */}
+            <div className="flex flex-col space-y-4">
               {filteredCryptos.map((crypto) => (
                 <CryptoCard key={crypto.id} crypto={crypto} />
               ))}
@@ -107,8 +100,8 @@ const Dashboard = () => {
 
             {filteredCryptos.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">
-                  No cryptocurrencies found matching your search.
+                <p className="text-gray-400 text-lg">
+                  No cryptocurrencies found.
                 </p>
               </div>
             )}
@@ -122,29 +115,27 @@ const Dashboard = () => {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   disabled={page === 1}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg 
+                             disabled:bg-gray-600 disabled:cursor-not-allowed hover:bg-blue-700"
                 >
                   Previous
                 </button>
-                <span className="px-4 py-2 text-gray-700">
-                  Page {page} of {totalPages} ({allCryptos.length} total)
+
+                <span className="px-4 py-2 text-gray-300">
+                  Page {page} of {totalPages}
                 </span>
+
                 <button
                   onClick={() => {
                     setPage((p) => Math.min(totalPages, p + 1));
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   disabled={page >= totalPages}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg 
+                             disabled:bg-gray-600 disabled:cursor-not-allowed hover:bg-blue-700"
                 >
                   Next
                 </button>
-              </div>
-            )}
-            
-            {searchTerm && (
-              <div className="mt-8 text-center text-gray-600">
-                Showing {filteredCryptos.length} of {allCryptos.length} cryptocurrencies
               </div>
             )}
           </>
@@ -155,4 +146,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

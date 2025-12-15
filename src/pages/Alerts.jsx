@@ -11,37 +11,28 @@ const Alerts = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingAlert, setEditingAlert] = useState(null);
   const [cryptoList, setCryptoList] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
   const [formData, setFormData] = useState({
     coinId: '',
     coinName: '',
     symbol: '',
     targetPrice: '',
-    condition: 'above', // 'above' or 'below'
+    condition: 'above',
     isActive: true,
   });
 
   useEffect(() => {
     if (!user) return;
-    
+
     const loadData = async () => {
-      // Clear crypto list when user changes to force refetch
       setCryptoList([]);
       await fetchAlerts();
       await fetchCryptoList();
-      // Initial check after loading
       setTimeout(checkAlerts, 2000);
     };
-    
+
     loadData();
-    
-    // Check alerts every 30 seconds
     const interval = setInterval(checkAlerts, 30000);
-    
-    return () => {
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [user]);
 
   const fetchAlerts = async () => {
@@ -51,7 +42,6 @@ const Alerts = () => {
       setAlerts(response.data);
     } catch (error) {
       toast.error('Failed to fetch alerts');
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -59,82 +49,59 @@ const Alerts = () => {
 
   const fetchCryptoList = async () => {
     try {
-      // Use the shared cached cryptocurrency list (same for all users)
       const allCryptos = await cryptoAPI.getAllCryptocurrencies();
-      
-      if (allCryptos && allCryptos.length > 0) {
-        // Already sorted alphabetically and deduplicated by the API function
-        setCryptoList(allCryptos);
-        console.log(`Loaded ${allCryptos.length} cryptocurrencies for dropdown`);
-      } else {
-        console.warn('No cryptocurrency data available');
-        setCryptoList([]);
-      }
+      setCryptoList(allCryptos || []);
     } catch (error) {
-      console.error('Failed to fetch crypto list', error);
       setCryptoList([]);
     }
   };
 
   const checkAlerts = async () => {
     try {
-      // Fetch fresh alerts to avoid stale data
       const response = await alertsAPI.getAll();
-      const currentAlerts = response.data;
-      const activeAlerts = currentAlerts.filter((alert) => alert.isActive);
-      
-      for (const alert of activeAlerts) {
-        try {
-          const coinData = await cryptoAPI.getCoinDetails(alert.coinId);
-          const currentPrice = coinData?.market_data?.current_price?.usd || 0;
-          
-          let triggered = false;
-          if (alert.condition === 'above' && currentPrice >= alert.targetPrice) {
-            triggered = true;
-          } else if (alert.condition === 'below' && currentPrice <= alert.targetPrice) {
-            triggered = true;
-          }
+      const activeAlerts = response.data.filter((a) => a.isActive);
 
-          if (triggered) {
-            toast.info(
-              `🚨 Alert: ${alert.coinName} (${alert.symbol}) is now $${currentPrice.toFixed(2)} (${alert.condition === 'above' ? 'above' : 'below'} $${alert.targetPrice})`,
-              { autoClose: 10000 }
-            );
-            // Deactivate alert after triggering
-            await alertsAPI.update(alert.id, { ...alert, isActive: false });
-            fetchAlerts();
-          }
-        } catch (error) {
-          console.error(`Error checking alert for ${alert.coinName}:`, error);
+      for (const alert of activeAlerts) {
+        const coinData = await cryptoAPI.getCoinDetails(alert.coinId);
+        const price = coinData?.market_data?.current_price?.usd || 0;
+
+        const triggered =
+          (alert.condition === 'above' && price >= alert.targetPrice) ||
+          (alert.condition === 'below' && price <= alert.targetPrice);
+
+        if (triggered) {
+          toast.info(
+            `🚨 ${alert.coinName} (${alert.symbol}) is now $${price.toFixed(2)} (${alert.condition} $${alert.targetPrice})`,
+            { autoClose: 10000 }
+          );
+          await alertsAPI.update(alert.id, { ...alert, isActive: false });
+          fetchAlerts();
         }
       }
-    } catch (error) {
-      console.error('Error checking alerts:', error);
-    }
+    } catch {}
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      const selectedCrypto = cryptoList.find((c) => c.id === formData.coinId);
-      
-      const alertData = {
-        coinId: formData.coinId,
-        coinName: formData.coinName || selectedCrypto?.name,
-        symbol: formData.symbol || selectedCrypto?.symbol.toUpperCase(),
-        targetPrice: parseFloat(formData.targetPrice),
-        condition: formData.condition,
-        isActive: formData.isActive,
-      };
 
+    const selected = cryptoList.find((c) => c.id === formData.coinId);
+    const alertData = {
+      coinId: formData.coinId,
+      coinName: formData.coinName || selected?.name,
+      symbol: formData.symbol || selected?.symbol.toUpperCase(),
+      targetPrice: parseFloat(formData.targetPrice),
+      condition: formData.condition,
+      isActive: formData.isActive,
+    };
+
+    try {
       if (editingAlert) {
         await alertsAPI.update(editingAlert.id, alertData);
-        toast.success('Alert updated successfully');
+        toast.success('Alert updated');
       } else {
         await alertsAPI.create(alertData);
-        toast.success('Alert created successfully');
+        toast.success('Alert created');
       }
-
       setShowModal(false);
       setEditingAlert(null);
       setFormData({
@@ -146,9 +113,8 @@ const Alerts = () => {
         isActive: true,
       });
       fetchAlerts();
-    } catch (error) {
+    } catch {
       toast.error('Failed to save alert');
-      console.error(error);
     }
   };
 
@@ -158,7 +124,7 @@ const Alerts = () => {
       coinId: alert.coinId,
       coinName: alert.coinName,
       symbol: alert.symbol,
-      targetPrice: alert.targetPrice.toString(),
+      targetPrice: alert.targetPrice,
       condition: alert.condition,
       isActive: alert.isActive,
     });
@@ -166,56 +132,27 @@ const Alerts = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this alert?')) {
+    if (window.confirm('Delete this alert?')) {
       try {
         await alertsAPI.delete(id);
-        toast.success('Alert deleted successfully');
+        toast.success('Alert deleted');
         fetchAlerts();
-      } catch (error) {
+      } catch {
         toast.error('Failed to delete alert');
-        console.error(error);
       }
     }
   };
 
-  const handleToggleActive = async (alert) => {
-    try {
-      await alertsAPI.update(alert.id, { ...alert, isActive: !alert.isActive });
-      toast.success(`Alert ${!alert.isActive ? 'activated' : 'deactivated'}`);
-      fetchAlerts();
-    } catch (error) {
-      toast.error('Failed to update alert');
-      console.error(error);
-    }
-  };
-
-  const handleCryptoSelect = (coinId) => {
-    const selected = cryptoList.find((c) => c.id === coinId);
-    if (selected) {
-      setFormData({
-        ...formData,
-        coinId: selected.id,
-        coinName: selected.name,
-        symbol: selected.symbol.toUpperCase(),
-      });
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <style>{`
-        @keyframes gradientShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-      `}</style>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex justify-between items-center">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100">
+
+      <div className="max-w-7xl mx-auto px-4 py-10">
+        <div className="flex justify-between items-center mb-10">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Price Alerts</h1>
-            <p className="text-gray-600">Set alerts for cryptocurrency price movements</p>
+            <h1 className="text-4xl font-bold text-white">Price Alerts</h1>
+            <p className="text-gray-400">Get notified when crypto prices move</p>
           </div>
+
           <button
             onClick={() => {
               setEditingAlert(null);
@@ -229,83 +166,74 @@ const Alerts = () => {
               });
               setShowModal(true);
             }}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
           >
-            <FaPlus />
-            <span>Create Alert</span>
+            <FaPlus /> <span>Create Alert</span>
           </button>
         </div>
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <FaSpinner className="animate-spin text-4xl text-blue-600" />
+            <FaSpinner className="animate-spin text-4xl text-blue-500" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {alerts.length === 0 ? (
-              <div className="col-span-full text-center py-12 bg-white rounded-lg shadow-md">
-                <FaBell className="mx-auto text-4xl text-gray-400 mb-4" />
-                <p className="text-gray-500 text-lg">No alerts yet. Create your first alert!</p>
+              <div className="col-span-full bg-gray-800 text-gray-300 rounded-lg shadow-md p-10 text-center">
+                <FaBell className="mx-auto text-5xl text-gray-500 mb-4" />
+                <p>No alerts found. Create your first alert!</p>
               </div>
             ) : (
               alerts.map((alert) => (
                 <div
                   key={alert.id}
-                  className={`bg-white rounded-lg shadow-md p-6 border-l-4 ${
-                    alert.isActive
-                      ? 'border-blue-500'
-                      : 'border-gray-300 opacity-75'
-                  }`}
+                  className={`bg-gray-800 rounded-lg shadow-md p-6 border-l-4 
+                    ${
+                      alert.isActive
+                        ? 'border-blue-500'
+                        : 'border-gray-600 opacity-70'
+                    }`}
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="text-xl font-bold text-gray-900">{alert.coinName}</h3>
-                      <p className="text-sm text-gray-500">{alert.symbol}</p>
+                      <h3 className="text-xl font-semibold text-white">
+                        {alert.coinName}
+                      </h3>
+                      <p className="text-gray-400 text-sm">{alert.symbol}</p>
                     </div>
+
                     <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        alert.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
+                      className={`px-2 py-1 text-xs rounded-full 
+                        ${
+                          alert.isActive
+                            ? 'bg-green-700/30 text-green-400'
+                            : 'bg-gray-700 text-gray-400'
+                        }`}
                     >
                       {alert.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-                  <div className="space-y-2 mb-4">
-                    <div>
-                      <p className="text-sm text-gray-600">Target Price</p>
-                      <p className="text-lg font-semibold text-gray-900">
-                        ${alert.targetPrice.toFixed(2)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Condition</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        Alert when price goes {alert.condition === 'above' ? 'above' : 'below'} target
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2 pt-4 border-t border-gray-200">
-                    <button
-                      onClick={() => handleToggleActive(alert)}
-                      className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
-                        alert.isActive
-                          ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          : 'bg-green-600 text-white hover:bg-green-700'
-                      }`}
-                    >
-                      {alert.isActive ? 'Deactivate' : 'Activate'}
-                    </button>
+
+                  <p className="text-gray-400 text-sm">Target Price</p>
+                  <p className="text-lg text-white font-semibold mb-3">
+                    ${alert.targetPrice.toFixed(2)}
+                  </p>
+
+                  <p className="text-gray-400 text-sm">Condition</p>
+                  <p className="text-gray-200 mb-4">
+                    Price goes {alert.condition} ${alert.targetPrice}
+                  </p>
+
+                  <div className="flex items-center space-x-3 pt-4 border-t border-gray-700">
                     <button
                       onClick={() => handleEdit(alert)}
-                      className="px-3 py-2 text-blue-600 hover:text-blue-800"
+                      className="px-3 py-2 text-blue-400 hover:text-blue-300"
                     >
                       <FaEdit />
                     </button>
                     <button
                       onClick={() => handleDelete(alert.id)}
-                      className="px-3 py-2 text-red-600 hover:text-red-800"
+                      className="px-3 py-2 text-red-400 hover:text-red-300"
                     >
                       <FaTrash />
                     </button>
@@ -315,119 +243,100 @@ const Alerts = () => {
             )}
           </div>
         )}
-
-        {/* Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div className="relative rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl overflow-hidden" style={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)',
-              backgroundSize: '400% 400%',
-              animation: 'gradientShift 12s ease infinite'
-            }}>
-              {/* Animated Pattern Overlay */}
-              <div className="absolute inset-0 opacity-15" style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='40' y='40' font-size='35' fill='white' text-anchor='middle'%3E🔔%3C/text%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='30' y='30' font-size='25' fill='white' text-anchor='middle' opacity='0.6'%3E₿%3C/text%3E%3C/svg%3E")`,
-                backgroundSize: '120px 120px, 100px 100px',
-                backgroundPosition: '0 0, 60px 60px'
-              }}></div>
-              
-              <div className="relative z-10 bg-white/95 backdrop-blur-sm rounded-lg p-6 -m-6">
-              <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                {editingAlert ? 'Edit Alert' : 'Create Alert'}
-              </h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cryptocurrency
-                  </label>
-                  <select
-                    value={formData.coinId}
-                    onChange={(e) => handleCryptoSelect(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
-                  >
-                    <option value="">Select a cryptocurrency ({cryptoList.length} available)</option>
-                    {cryptoList.map((crypto) => (
-                      <option key={crypto.id} value={crypto.id}>
-                        {crypto.name} ({crypto.symbol.toUpperCase()})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    All cryptocurrencies are listed alphabetically. Use the dropdown scrollbar to navigate.
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Target Price (USD)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.targetPrice}
-                    onChange={(e) =>
-                      setFormData({ ...formData, targetPrice: e.target.value })
-                    }
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Condition
-                  </label>
-                  <select
-                    value={formData.condition}
-                    onChange={(e) =>
-                      setFormData({ ...formData, condition: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="above">Alert when price goes above</option>
-                    <option value="below">Alert when price goes below</option>
-                  </select>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={formData.isActive}
-                    onChange={(e) =>
-                      setFormData({ ...formData, isActive: e.target.checked })
-                    }
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
-                    Active
-                  </label>
-                </div>
-                <div className="flex space-x-4 pt-4">
-                  <button
-                    type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    {editingAlert ? 'Update' : 'Create'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      setEditingAlert(null);
-                    }}
-                    className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* MODAL */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md text-gray-200 shadow-xl">
+
+            <h2 className="text-2xl font-bold text-blue-400 mb-4">
+              {editingAlert ? 'Edit Alert' : 'Create Alert'}
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Crypto Dropdown */}
+              <div>
+                <label className="text-gray-300 text-sm">Cryptocurrency</label>
+                <select
+                  value={formData.coinId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, coinId: e.target.value })
+                  }
+                  className="w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200"
+                >
+                  <option value="">Select coin</option>
+                  {cryptoList.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.symbol.toUpperCase()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Target Price */}
+              <div>
+                <label className="text-gray-300 text-sm">Target Price (USD)</label>
+                <input
+                  type="number"
+                  value={formData.targetPrice}
+                  onChange={(e) =>
+                    setFormData({ ...formData, targetPrice: e.target.value })
+                  }
+                  className="w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200"
+                />
+              </div>
+
+              {/* Condition */}
+              <div>
+                <label className="text-gray-300 text-sm">Condition</label>
+                <select
+                  value={formData.condition}
+                  onChange={(e) =>
+                    setFormData({ ...formData, condition: e.target.value })
+                  }
+                  className="w-full p-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-200"
+                >
+                  <option value="above">Above</option>
+                  <option value="below">Below</option>
+                </select>
+              </div>
+
+              {/* Active Toggle */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isActive: e.target.checked })
+                  }
+                />
+                <span>Active</span>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg"
+                >
+                  {editingAlert ? 'Update' : 'Create'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 p-2 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default Alerts;
-

@@ -40,3 +40,14 @@
 .read-the-docs {
   color: #888;
 }
+.crypto-card {
+  background: #d80707;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.crypto-card:hover {
+  background: #46557c;     /* light blue background */
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
